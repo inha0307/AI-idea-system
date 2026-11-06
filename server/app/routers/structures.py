@@ -29,6 +29,7 @@ def _structure_outs(db: Session, structures: list[Structure]) -> list[StructureO
     return [
         StructureOut(
             id=s.id, name=s.name, address=s.address, model_url=s.model_url,
+            latitude=s.latitude, longitude=s.longitude,
             created_at=s.created_at, crack_counts=counts[s.id],
             last_inspected_at=last.get(s.id),
         )
@@ -36,7 +37,7 @@ def _structure_outs(db: Session, structures: list[Structure]) -> list[StructureO
     ]
 
 
-def _get_structure(db: Session, structure_id: int) -> Structure:
+def get_structure_or_404(db: Session, structure_id: int) -> Structure:
     s = db.get(Structure, structure_id)
     if s is None:
         raise HTTPException(404, f"구조물 {structure_id}이(가) 없습니다")
@@ -51,14 +52,14 @@ def list_structures(db: Session = Depends(get_db)):
 
 @router.get("/structures/{structure_id}", response_model=StructureOut)
 def get_structure(structure_id: int, db: Session = Depends(get_db)):
-    return _structure_outs(db, [_get_structure(db, structure_id)])[0]
+    return _structure_outs(db, [get_structure_or_404(db, structure_id)])[0]
 
 
 @router.get("/structures/{structure_id}/cracks", response_model=list[CrackOut])
 def list_structure_cracks(
     structure_id: int, severity: Severity | None = None, db: Session = Depends(get_db)
 ):
-    _get_structure(db, structure_id)
+    get_structure_or_404(db, structure_id)
     q = select(Crack).where(Crack.structure_id == structure_id)
     if severity:
         q = q.where(Crack.severity == severity)

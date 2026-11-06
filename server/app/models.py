@@ -17,6 +17,9 @@ class Structure(Base):
     name: Mapped[str] = mapped_column(String(200))
     address: Mapped[str | None] = mapped_column(String(300))
     model_url: Mapped[str | None] = mapped_column(String(500))
+    # 날씨 조회용 위치 (WGS84). 없으면 /weather는 404
+    latitude: Mapped[float | None] = mapped_column(Float)
+    longitude: Mapped[float | None] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     inspections: Mapped[list["Inspection"]] = relationship(back_populates="structure")
