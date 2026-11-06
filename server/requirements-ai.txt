@@ -1,0 +1,5 @@
+# DETECTOR=yolo일 때만 필요 (torch 포함, 용량 큼)
+# 버전은 버전 표에서 Ultralytics가 확정되면 == 로 고정합니다 (규칙 5)
+-r requirements.txt
+ultralytics
+scikit-image

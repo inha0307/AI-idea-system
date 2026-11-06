@@ -1,0 +1,104 @@
+"""API 입출력 형식. JSON 필드는 camelCase (규칙 11)."""
+
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
+
+Severity = Literal["safe", "caution", "danger"]
+
+
+class CamelModel(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+
+class Vec3(CamelModel):
+    x: float
+    y: float
+    z: float
+
+
+# ---------- UE5 capture_result (1-4 ①) ----------
+
+class Drone(Vec3):
+    yaw: float
+    pitch: float
+
+
+class CaptureMeta(CamelModel):
+    type: Literal["capture_result"] = "capture_result"
+    id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")  # 파일명에 쓰므로 제한
+    structure_id: int
+    drone: Drone
+    hit: Vec3 | None = None
+    hit_ok: bool
+    distance_cm: float = Field(gt=0)
+    fov_deg: float = Field(gt=0, lt=180)
+
+
+# ---------- 구조물 ----------
+
+class CrackCounts(BaseModel):
+    safe: int = 0
+    caution: int = 0
+    danger: int = 0
+
+
+class StructureOut(CamelModel):
+    id: int
+    name: str
+    address: str | None
+    model_url: str | None
+    created_at: datetime
+    crack_counts: CrackCounts
+    last_inspected_at: datetime | None
+
+
+# ---------- 점검 ----------
+
+class InspectionCreate(CamelModel):
+    structure_id: int
+    note: str | None = None
+
+
+class InspectionOut(CamelModel):
+    id: int
+    structure_id: int
+    started_at: datetime
+    note: str | None
+
+
+# ---------- 균열 ----------
+
+class CrackOut(CamelModel):
+    id: int
+    inspection_id: int
+    structure_id: int
+    severity: Severity
+    confidence: float
+    length_mm: float
+    width_mm: float
+    area_mm2: float
+    pos: Vec3
+    image_url: str | None
+    overlay_url: str | None
+    created_at: datetime
+
+
+class DetectedCrack(CamelModel):
+    id: int
+    severity: Severity
+    confidence: float
+    length_mm: float
+    width_mm: float
+    area_mm2: float
+    pos: Vec3
+    bbox: list[int]
+    image_url: str
+    overlay_url: str
+
+
+class DetectOut(CamelModel):
+    inspection_id: int
+    cracks: list[DetectedCrack]

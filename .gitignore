@@ -1,0 +1,28 @@
+# 비밀값·환경별 설정 (규칙 8)
+.env
+.env.local
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.db
+
+# 서버 데이터 (Drive에서 받기)
+server/models/*
+!server/models/.gitkeep
+server/storage/*
+!server/storage/.gitkeep
+
+# Node
+node_modules/
+.next/
+.vercel/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
