@@ -12,6 +12,7 @@ pip install -r requirements.txt          # 실제 모델을 쓸 때는 requireme
 Copy-Item .env.example .env              # 값 확인 (SEVERITY_* 는 AI 담당이 확정)
 docker compose up -d                     # PostgreSQL
 python seed.py                           # 시연 데이터 (기존 데이터 삭제됨)
+# python seed.py --no-cracks             # 구조물만, 예시 균열 없이 (실제 시연 전 초기화)
 ```
 
 ## 실행
