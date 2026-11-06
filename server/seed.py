@@ -34,14 +34,15 @@ CLOSE = (50.0, 30.0)   # 1픽셀 ≈ 0.14mm → 측정 가능
 FAR = (430.0, 90.0)    # 1픽셀 ≈ 4.48mm → 폭이 1픽셀보다 작아 「측정 신뢰 불가」
 
 # 예시 균열 (UE5 좌표 cm). 정답 위치 목록이 나오면 그 값으로 바꿉니다.
+# 2026-11-07 프론트 요청: structure.glb 벽면에 닿는 점으로 변경 (S동 x<0 / N동 x>0, 층 = z ÷ 460 + 1)
 CRACKS = [
     # severity, pos(x, y, z), length_mm, width_mm, confidence, (distance_cm, fov_deg)
-    ("danger", (1250.0, -150.0, 380.0), 380.0, 2.4, 0.93, NEAR),
-    ("danger", (1250.0, 420.0, 610.0), 640.0, 1.6, 0.88, FAR),
-    ("caution", (1250.0, -600.0, 250.0), 250.0, 0.6, 0.87, NEAR),
-    ("caution", (1250.0, 120.0, 820.0), 310.0, 0.45, 0.81, FAR),
-    ("safe", (1250.0, -320.0, 150.0), 120.0, 0.15, 0.76, CLOSE),
-    ("safe", (1250.0, 700.0, 450.0), 95.0, 0.1, 0.71, FAR),
+    ("danger", (-2400.0, 820.0, 2530.0), 380.0, 2.4, 0.93, NEAR),   # S동 6층 (2주 전에도 관측)
+    ("danger", (2400.0, 820.0, 6210.0), 640.0, 1.6, 0.88, FAR),     # N동 14층
+    ("caution", (-4199.0, 0.0, 4830.0), 250.0, 0.6, 0.87, NEAR),    # S동 11층 서쪽 옆면
+    ("caution", (1500.0, 1101.0, 1150.0), 310.0, 0.45, 0.81, FAR),  # N동 3층
+    ("safe", (-1500.0, 1240.0, 7590.0), 120.0, 0.15, 0.76, CLOSE),  # S동 17층
+    ("safe", (3767.0, 500.0, 3910.0), 95.0, 0.1, 0.71, FAR),        # N동 9층 동쪽 옆면
 ]
 
 
@@ -120,8 +121,8 @@ def main() -> None:
             )
             db.add(track)
             db.flush()
-            if i == 1:  # 이전 관측: 같은 위치 근처, 폭이 더 가늘었음 (주의)
-                observe(earlier, track, "seed-01-prev", "caution", (pos[0], pos[1] + 6, pos[2] - 4),
+            if i == 1:  # 이전 관측: 같은 위치, 폭이 더 가늘었음 (주의)
+                observe(earlier, track, "seed-01-prev", "caution", pos,
                         length * 0.9, 0.8, 0.88, dist, fov, 101)
             observe(insp, track, f"seed-{i:02d}", sev, pos, length, width, conf, dist, fov, i)
         db.commit()
