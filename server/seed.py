@@ -1,9 +1,11 @@
 """시연 데이터 생성 (규칙 6: 시연 데이터는 이 스크립트로만 만든다).
 
-실행: python seed.py
-⚠️ 기존 DB 테이블을 모두 지우고 다시 만듭니다.
+실행: python seed.py              구조물 + 예시 점검·균열
+      python seed.py --no-cracks  구조물만 (예시 균열 없이, 실제 시연 전 초기화용)
+⚠️ 기존 DB 테이블과 저장된 점검 사진(storage/captures)을 모두 지우고 다시 만듭니다.
 """
 
+import shutil
 import sys
 from datetime import datetime, timedelta, timezone
 
@@ -85,12 +87,19 @@ def main() -> None:
 
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
+    # DB와 짝이 맞지 않는 옛 점검 사진도 지움 (3D 모델 등 storage/assets는 그대로)
+    shutil.rmtree(settings.storage_dir / "captures", ignore_errors=True)
 
     now = datetime.now(timezone.utc)
     with SessionLocal() as db:
         s = Structure(**STRUCTURE, created_at=now - timedelta(days=30))
         db.add(s)
         db.flush()
+
+        if "--no-cracks" in sys.argv:
+            db.commit()
+            print("완료: 구조물 1개 (점검·균열 없음)")
+            return
 
         # 점검 2회: 2주 전 점검에서 1번 균열을 먼저 발견 → 어제 점검에서 폭이 커진 것을 다시 관측
         earlier = Inspection(structure_id=s.id, started_at=now - timedelta(days=14), note="시드 데이터 (이전 점검)")
