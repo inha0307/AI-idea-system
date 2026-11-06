@@ -15,6 +15,8 @@ os.environ.update({
     "DETECTOR": "fake",
     "SEVERITY_CAUTION_MM": "0.3",
     "SEVERITY_DANGER_MM": "1.0",
+    "ADMIN_PASSWORD": "test-admin-pass",
+    "AUTH_SECRET": "test-secret",
 })
 
 import cv2  # noqa: E402
@@ -48,6 +50,9 @@ def client():
                              latitude=37.8014, longitude=128.9088))
             db.add(Structure(name="위치 없는 건물", address="?"))
             db.commit()
+        # 대부분의 테스트는 관리자로 실행 (게스트 규칙은 test_auth.py)
+        token = c.post("/auth/login", json={"password": "test-admin-pass"}).json()["token"]
+        c.headers["Authorization"] = f"Bearer {token}"
         yield c
 
 

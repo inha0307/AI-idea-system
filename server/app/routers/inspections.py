@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app import images, tracking
+from app import auth, images, tracking
 from app.ai import detector
 from app.config import settings
 from app.db import get_db
@@ -16,7 +16,8 @@ from app.schemas import CaptureMeta, DetectedCrack, DetectOut, InspectionCreate,
 router = APIRouter(tags=["inspections"])
 
 
-@router.post("/inspections", response_model=InspectionOut, status_code=201)
+@router.post("/inspections", response_model=InspectionOut, status_code=201,
+             dependencies=[Depends(auth.require_admin)])
 def create_inspection(body: InspectionCreate, db: Session = Depends(get_db)):
     if db.get(Structure, body.structure_id) is None:
         raise HTTPException(404, f"구조물 {body.structure_id}이(가) 없습니다")
@@ -29,7 +30,9 @@ def create_inspection(body: InspectionCreate, db: Session = Depends(get_db)):
 
 
 # 추론이 CPU를 오래 쓰므로 일반 def로 둬서 스레드풀에서 실행되게 함
-@router.post("/inspections/{inspection_id}/detect", response_model=DetectOut)
+# UE5가 호출하므로 토큰 없이, 로컬 네트워크에서만 허용 (터널 거부)
+@router.post("/inspections/{inspection_id}/detect", response_model=DetectOut,
+             dependencies=[Depends(auth.require_local)])
 def detect(
     inspection_id: int,
     image: UploadFile = File(..., description="스트리밍 화면 캡처 JPG"),

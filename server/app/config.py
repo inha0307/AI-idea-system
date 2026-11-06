@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     SEVERITY_CAUTION_MM: float
     SEVERITY_DANGER_MM: float
     TRACK_MATCH_CM: float = 50.0  # 이 반경 안의 기존 균열이면 같은 균열로 묶음
+    ADMIN_PASSWORD: str = ""  # 비어 있으면 관리자 로그인 불가
+    AUTH_SECRET: str = ""  # 토큰 서명 키. 비어 있으면 실행마다 새로 만듦
+    ADMIN_TOKEN_HOURS: float = 12
     KMA_SERVICE_KEY: str = ""  # 비어 있으면 /weather는 503
     WEATHER_CACHE_SEC: int = 600
 
