@@ -74,7 +74,9 @@ def test_full_flow(client):
     r = _detect(client, insp_id)
     assert r.status_code == 200, r.text
     body = r.json()
+    assert body["type"] == "detect_result"
     assert body["inspectionId"] == insp_id
+    assert body["captureId"] == "c-0001"
     crack = body["cracks"][0]
     assert crack["severity"] == "caution"
     assert crack["pos"] == META["hit"]
@@ -109,6 +111,24 @@ def test_capture_conditions_unknown_are_null(client):
         crack_id = c.id
     body = client.get(f"/cracks/{crack_id}").json()
     assert (body["distanceCm"], body["fovDeg"], body["imageWidth"]) == (None, None, None)
+
+
+def test_ue5_style_multipart(client):
+    """UE5 C++ 예제(docs 디지털트윈팀 2-6)가 직접 만드는 multipart 본문을 그대로 보냄."""
+    insp_id = client.post("/inspections", json={"structureId": 1}).json()["id"]
+    boundary = "----CrackTwinBoundary7d1f"
+    meta = json.dumps({**META, "id": "c-ue5"}, separators=(",", ":"))
+    body = (
+        f"--{boundary}\r\nContent-Disposition: form-data; name=\"meta\"\r\n\r\n{meta}\r\n"
+        f"--{boundary}\r\nContent-Disposition: form-data; name=\"image\"; filename=\"c-ue5.jpg\"\r\n"
+        f"Content-Type: image/jpeg\r\n\r\n"
+    ).encode() + _jpg() + f"\r\n--{boundary}--\r\n".encode()
+    r = client.post(
+        f"/inspections/{insp_id}/detect", content=body,
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["captureId"] == "c-ue5"
 
 
 def test_image_width_from_uploaded_image(client):
