@@ -10,12 +10,28 @@ from app.schemas import CrackCounts, CrackOut, LatestInspection, Severity, Struc
 router = APIRouter(tags=["structures"])
 
 
+def latest_per_track(*conds, per_inspection: bool = False):
+    """조건에 맞는 관측 중 균열(트랙)마다 가장 최근 1건의 id 서브쿼리.
+
+    트랙이 없는 관측(옛 데이터)은 각자 하나의 균열로 본다.
+    per_inspection=True면 점검마다 따로 고른다 (점검별 균열 수).
+    """
+    track_key = func.coalesce(Crack.track_id, -Crack.id)
+    partition = [Crack.inspection_id, track_key] if per_inspection else [track_key]
+    rn = func.row_number().over(
+        partition_by=partition, order_by=(Crack.created_at.desc(), Crack.id.desc())
+    ).label("rn")
+    sub = select(Crack.id.label("id"), rn).where(*conds).subquery()
+    return select(sub.c.id).where(sub.c.rn == 1)
+
+
 def _structure_outs(db: Session, structures: list[Structure]) -> list[StructureOut]:
     ids = [s.id for s in structures]
+    # 실제 균열 수: 균열마다 가장 최근 관측의 위험도로 셈
     counts: dict[int, CrackCounts] = {i: CrackCounts() for i in ids}
     for sid, sev, n in db.execute(
         select(Crack.structure_id, Crack.severity, func.count())
-        .where(Crack.structure_id.in_(ids))
+        .where(Crack.id.in_(latest_per_track(Crack.structure_id.in_(ids))))
         .group_by(Crack.structure_id, Crack.severity)
     ):
         setattr(counts[sid], sev, n)
@@ -41,7 +57,7 @@ def _structure_outs(db: Session, structures: list[Structure]) -> list[StructureO
 
 
 def _latest_inspections(db: Session, ids: list[int]) -> dict[int, LatestInspection]:
-    """구조물별로 균열이 1건 이상 있는 가장 최근 점검과 그 점검의 위험도별 균열 수."""
+    """구조물별로 균열이 1건 이상 있는 가장 최근 점검과, 그 점검에서 찍힌 균열 수 (같은 균열은 1개)."""
     rows = db.execute(
         select(Inspection.id, Inspection.structure_id, Inspection.started_at)
         .where(Inspection.structure_id.in_(ids))
@@ -56,9 +72,10 @@ def _latest_inspections(db: Session, ids: list[int]) -> dict[int, LatestInspecti
         return latest
 
     by_insp = {li.id: li for li in latest.values()}
+    picked = latest_per_track(Crack.inspection_id.in_(by_insp), per_inspection=True)
     for insp_id, sev, n in db.execute(
         select(Crack.inspection_id, Crack.severity, func.count())
-        .where(Crack.inspection_id.in_(by_insp))
+        .where(Crack.id.in_(picked))
         .group_by(Crack.inspection_id, Crack.severity)
     ):
         setattr(by_insp[insp_id].crack_counts, sev, n)
@@ -88,12 +105,16 @@ def list_structure_cracks(
     structure_id: int,
     severity: Severity | None = None,
     inspection_id: int | None = Query(None, alias="inspectionId"),
+    latest: bool = Query(False, description="균열(trackId)마다 가장 최근 관측 1건만"),
     db: Session = Depends(get_db),
 ):
     get_structure_or_404(db, structure_id)
-    q = select(Crack).where(Crack.structure_id == structure_id)
+    conds = [Crack.structure_id == structure_id]
     if severity:
-        q = q.where(Crack.severity == severity)
+        conds.append(Crack.severity == severity)
     if inspection_id is not None:
-        q = q.where(Crack.inspection_id == inspection_id)
+        conds.append(Crack.inspection_id == inspection_id)
+    q = select(Crack).where(*conds)
+    if latest:
+        q = select(Crack).where(Crack.id.in_(latest_per_track(*conds)))
     return [to_crack_out(c) for c in db.scalars(q.order_by(Crack.created_at.desc(), Crack.id.desc()))]

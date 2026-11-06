@@ -14,7 +14,7 @@ from app import images
 from app.ai.detector import mm_per_px
 from app.config import settings
 from app.db import Base, SessionLocal, engine
-from app.models import Crack, Inspection, Structure
+from app.models import Crack, CrackTrack, Inspection, Structure
 
 # 구조물 1개: 시연 건물 강릉 스카이베이. .glb는 Drive /assets에서 받아 storage/assets/structure.glb에 둡니다.
 # 위경도는 날씨 조회용 (기상청 격자 93, 133). 격자가 5km 단위라 대략적인 값이면 충분합니다.
@@ -91,26 +91,42 @@ def main() -> None:
         db.add(s)
         db.flush()
 
+        # 점검 2회: 2주 전 점검에서 1번 균열을 먼저 발견 → 어제 점검에서 폭이 커진 것을 다시 관측
+        earlier = Inspection(structure_id=s.id, started_at=now - timedelta(days=14), note="시드 데이터 (이전 점검)")
         insp = Inspection(structure_id=s.id, started_at=now - timedelta(days=1), note="시드 데이터")
-        db.add(insp)
+        db.add_all([earlier, insp])
         db.flush()
 
-        for i, (sev, (px, py, pz), length, width, conf, (dist, fov)) in enumerate(CRACKS, start=1):
-            orig, overlay = wall_image(i, sev, length, width, mm_per_px(dist, fov, IMG_W))
-            rel = f"captures/{insp.id}/seed-{i:02d}"
+        def observe(insp_obj, track, key, sev, pos, length, width, conf, dist, fov, seed_no):
+            orig, overlay = wall_image(seed_no, sev, length, width, mm_per_px(dist, fov, IMG_W))
+            rel = f"captures/{insp_obj.id}/{key}"
             images.save_jpg(settings.storage_dir / f"{rel}_orig.jpg", orig)
             images.save_jpg(settings.storage_dir / f"{rel}_overlay.jpg", overlay)
             db.add(Crack(
-                inspection_id=insp.id, structure_id=s.id,
+                inspection_id=insp_obj.id, structure_id=s.id, track_id=track.id,
                 image_url=f"/files/{rel}_orig.jpg", overlay_url=f"/files/{rel}_overlay.jpg",
-                pos_x=px, pos_y=py, pos_z=pz,
+                pos_x=pos[0], pos_y=pos[1], pos_z=pos[2],
                 length_mm=length, width_mm=width, area_mm2=round(length * width, 1),
                 distance_cm=dist, fov_deg=fov, image_width=IMG_W,
-                severity=sev, confidence=conf, created_at=insp.started_at,
+                severity=sev, confidence=conf, created_at=insp_obj.started_at,
             ))
+
+        for i, (sev, pos, length, width, conf, (dist, fov)) in enumerate(CRACKS, start=1):
+            first = earlier if i == 1 else insp
+            track = CrackTrack(
+                structure_id=s.id, pos_x=pos[0], pos_y=pos[1], pos_z=pos[2], length_mm=length,
+                observations=2 if i == 1 else 1,
+                first_seen_at=first.started_at, last_seen_at=insp.started_at,
+            )
+            db.add(track)
+            db.flush()
+            if i == 1:  # 이전 관측: 같은 위치 근처, 폭이 더 가늘었음 (주의)
+                observe(earlier, track, "seed-01-prev", "caution", (pos[0], pos[1] + 6, pos[2] - 4),
+                        length * 0.9, 0.8, 0.88, dist, fov, 101)
+            observe(insp, track, f"seed-{i:02d}", sev, pos, length, width, conf, dist, fov, i)
         db.commit()
 
-    print(f"완료: 구조물 1개, 점검 1개, 균열 {len(CRACKS)}개")
+    print(f"완료: 구조물 1개, 점검 2회, 균열 {len(CRACKS)}개 (관측 {len(CRACKS) + 1}건, 1번 균열은 2회 관측)")
 
 
 if __name__ == "__main__":

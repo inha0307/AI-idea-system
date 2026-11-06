@@ -57,6 +57,7 @@ def detect(image: np.ndarray, meta: dict) -> list[dict]:
             image,
             device=_device,
             conf=settings.CONF_THRESHOLD,
+            iou=0.5,  # 겹친 박스를 기본값(0.7)보다 적극적으로 합침
             retina_masks=True,  # 마스크를 원본 크기로 → mm 환산 정확
             verbose=False,
         )[0]
@@ -71,8 +72,9 @@ def detect(image: np.ndarray, meta: dict) -> list[dict]:
     # 분할(seg) 모델이면 마스크를 그대로 쓰고, 탐지(detect) 모델이면 박스 안에서 마스크를 추정
     masks = result.masks.data.cpu().numpy() if result.masks is not None else [None] * len(boxes)
 
+    keep = suppress_overlaps(boxes, confs)
     cracks = []
-    for mask, box, conf in zip(masks, boxes, confs):
+    for mask, box, conf in ((masks[i], boxes[i], confs[i]) for i in keep):
         if mask is None:
             mask = mask_from_box(image, box)
             if not mask.any():
@@ -115,13 +117,40 @@ def measure(mask: np.ndarray, scale: float) -> dict:
     }
 
 
+def suppress_overlaps(boxes, confs, max_overlap: float = 0.7) -> list[int]:
+    """한 균열에 박스가 겹쳐 잡힌 경우 신뢰도 높은 것만 남긴 인덱스 (신뢰도 높은 순).
+
+    겹침 = 교집합 ÷ 작은 박스 넓이. 큰 박스 안에 작은 박스가 거의 들어가 있으면 같은 균열로 본다.
+    """
+    order = sorted(range(len(boxes)), key=lambda i: -float(confs[i]))
+    kept: list[int] = []
+    for i in order:
+        a = boxes[i]
+        area_a = max(0.0, a[2] - a[0]) * max(0.0, a[3] - a[1])
+        dup = False
+        for j in kept:
+            b = boxes[j]
+            iw = min(a[2], b[2]) - max(a[0], b[0])
+            ih = min(a[3], b[3]) - max(a[1], b[1])
+            if iw <= 0 or ih <= 0:
+                continue
+            area_b = (b[2] - b[0]) * (b[3] - b[1])
+            if iw * ih / max(min(area_a, area_b), 1e-6) >= max_overlap:
+                dup = True
+                break
+        if not dup:
+            kept.append(i)
+    return kept
+
+
 def mask_from_box(image: np.ndarray, box) -> np.ndarray:
     """탐지(detect) 모델용: 박스 안에서 주변보다 어두운 선(균열)을 골라 마스크를 만든다.
 
-    균열은 벽보다 어둡고 가늘고 길다는 점을 이용한다.
-    1. black-hat: 각 픽셀이 주변 배경보다 얼마나 어두운지
-    2. 가장 어두운 부분의 절반 이상만 남김 (반치폭 → 선 굵기를 부풀리지 않음)
-    3. 박스 크기에 비해 충분히 길게 이어진 덩어리만 남김 (벽 얼룩·잡음 제거)
+    균열은 벽보다 어둡고 길다는 점을 이용해, 두 가지로 찾은 것을 합친다.
+    A. 가는 균열: black-hat(주변 배경보다 얼마나 어두운지)에서 가장 어두운 정도의 절반 이상 (반치폭)
+    B. 굵은 균열 (UE5 데칼처럼 수십 px): 박스 안 벽 밝기와 가장 어두운 밝기의 중간보다 어두운 픽셀
+       (A는 커널보다 굵은 균열을 놓치므로 B가 필요)
+    그다음 박스 크기에 비해 충분히 길게 이어진 덩어리만 남긴다 (벽 얼룩·잡음 제거).
     분할(seg) 모델이 오면 이 함수는 쓰이지 않는다.
     """
     h, w = image.shape[:2]
@@ -133,15 +162,27 @@ def mask_from_box(image: np.ndarray, box) -> np.ndarray:
         return mask
 
     gray = cv2.cvtColor(image[y1:y2, x1:x2], cv2.COLOR_BGR2GRAY)
-    k = max(9, (min(x2 - x1, y2 - y1) // 8) | 1)  # 균열보다 넓은 홀수 크기
+    crop = np.zeros(gray.shape, dtype=np.uint8)
+
+    # A. 가는 균열
+    k = max(9, (min(x2 - x1, y2 - y1) // 8) | 1)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
     dark = cv2.morphologyEx(gray, cv2.MORPH_BLACKHAT, kernel)  # 배경보다 어두운 정도
     dark = cv2.GaussianBlur(dark, (3, 3), 0)
     floor = float(np.median(dark))  # 벽 질감·잡음 수준
     peak = float(np.percentile(dark, 99.8))  # 한두 픽셀 튀는 값에 끌려가지 않게
-    if peak - floor < 25:  # 잡음과 뚜렷이 구분되는 어두운 선이 없음
+    if peak - floor >= 25:
+        crop |= (dark >= floor + (peak - floor) * 0.5).astype(np.uint8)
+
+    # B. 굵은 균열
+    smooth = cv2.GaussianBlur(gray, (3, 3), 0)
+    wall = float(np.percentile(smooth, 75))
+    darkest = float(np.percentile(smooth, 0.5))
+    if wall - darkest >= 40:
+        crop |= (smooth <= (wall + darkest) / 2).astype(np.uint8)
+
+    if not crop.any():  # 잡음과 뚜렷이 구분되는 어두운 선이 없음
         return mask
-    crop = (dark >= floor + (peak - floor) * 0.5).astype(np.uint8)
 
     n, labels, stats, _ = cv2.connectedComponentsWithStats(crop, connectivity=8)
     min_span = 0.15 * max(x2 - x1, y2 - y1)  # 선이라면 박스 크기의 15% 이상 이어짐

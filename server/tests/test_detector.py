@@ -37,6 +37,23 @@ def test_mask_from_box_matches_drawn_line(thick):
     assert est["lengthMm"] == pytest.approx(ideal["lengthMm"], rel=0.1)
 
 
+def test_mask_from_box_thick_decal_crack():
+    """UE5 데칼처럼 수십 px 굵기의 균열도 잡는지 (가는 균열용 방식만으로는 놓침)."""
+    img = np.full((1080, 1920, 3), 205, np.uint8)
+    cv2.line(img, (600, 480), (1180, 520), (40, 38, 36), 30)
+    est = detector.measure(detector.mask_from_box(img, [570, 420, 1210, 580]), 1.0)
+    m = np.zeros((1080, 1920), np.uint8)
+    cv2.line(m, (600, 480), (1180, 520), 1, 30)
+    ideal = detector.measure(m > 0, 1.0)
+    assert est["widthMm"] == pytest.approx(ideal["widthMm"], rel=0.1)
+
+
+def test_suppress_overlaps_keeps_best_of_nested_boxes():
+    boxes = np.array([[568, 438, 1195, 540], [570, 418, 1203, 562], [100, 100, 300, 200]], float)
+    confs = np.array([0.40, 0.59, 0.30])
+    assert detector.suppress_overlaps(boxes, confs) == [1, 2]  # 겹친 0.40 박스는 버림
+
+
 def test_mask_from_box_blank_wall_is_empty():
     flat = np.full((1080, 1920, 3), 150, np.uint8)
     assert not detector.mask_from_box(flat, [100, 100, 600, 400]).any()

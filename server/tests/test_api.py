@@ -81,7 +81,9 @@ def test_full_flow(client):
     assert body["captureId"] == "c-0001"
     crack = body["cracks"][0]
     assert crack["severity"] == "caution"
-    assert crack["pos"] == META["hit"]
+    # 균열별 위치: 가짜 박스 중심이 화면 가운데 근처라 hit에서 몇 cm 안
+    assert all(abs(crack["pos"][k] - META["hit"][k]) < 10 for k in "xyz")
+    assert isinstance(crack["trackId"], int)
     assert crack["bbox"] == [812, 400, 1104, 690]
     assert crack["imageUrl"] == f"/files/captures/{insp_id}/c-0001_orig.jpg"
     assert (crack["distanceCm"], crack["fovDeg"], crack["imageWidth"]) == (430.0, 90.0, 1920)

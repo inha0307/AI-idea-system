@@ -32,6 +32,7 @@ class CaptureMeta(CamelModel):
     structure_id: int
     drone: Drone
     hit: Vec3 | None = None
+    hit_normal: Vec3 | None = None  # 선택: 벽면 방향 (Impact Normal)
     hit_ok: bool
     distance_cm: float = Field(gt=0)
     fov_deg: float = Field(gt=0, lt=180)
@@ -109,6 +110,7 @@ class CaptureConditions(CamelModel):
 
 class CrackOut(CaptureConditions):
     id: int
+    track_id: int | None
     inspection_id: int
     structure_id: int
     severity: Severity
@@ -124,6 +126,7 @@ class CrackOut(CaptureConditions):
 
 class DetectedCrack(CaptureConditions):
     id: int
+    track_id: int
     severity: Severity
     confidence: float
     length_mm: float
