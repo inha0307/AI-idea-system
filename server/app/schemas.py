@@ -71,7 +71,14 @@ class InspectionOut(CamelModel):
 
 # ---------- 균열 ----------
 
-class CrackOut(CamelModel):
+class CaptureConditions(CamelModel):
+    """촬영 조건. 웹이 1픽셀당 mm를 계산해 측정 신뢰도를 표시하는 데 씀."""
+    distance_cm: float | None
+    fov_deg: float | None
+    image_width: int | None
+
+
+class CrackOut(CaptureConditions):
     id: int
     inspection_id: int
     structure_id: int
@@ -86,7 +93,7 @@ class CrackOut(CamelModel):
     created_at: datetime
 
 
-class DetectedCrack(CamelModel):
+class DetectedCrack(CaptureConditions):
     id: int
     severity: Severity
     confidence: float

@@ -24,7 +24,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import Structure  # noqa: E402
+from app.models import Crack, Structure  # noqa: E402
 
 META = {
     "type": "capture_result",
@@ -80,6 +80,7 @@ def test_full_flow(client):
     assert crack["pos"] == META["hit"]
     assert crack["bbox"] == [812, 400, 1104, 690]
     assert crack["imageUrl"] == f"/files/captures/{insp_id}/c-0001_orig.jpg"
+    assert (crack["distanceCm"], crack["fovDeg"], crack["imageWidth"]) == (430.0, 90.0, 1920)
 
     # 저장된 이미지가 /files로 열림
     assert client.get(crack["overlayUrl"]).status_code == 200
@@ -90,7 +91,31 @@ def test_full_flow(client):
     assert s["lastInspectedAt"] is not None
     assert len(client.get("/structures/1/cracks?severity=caution").json()) == 1
     assert client.get("/structures/1/cracks?severity=danger").json() == []
-    assert client.get(f"/cracks/{crack['id']}").json()["widthMm"] == 1.8
+    detail = client.get(f"/cracks/{crack['id']}").json()
+    assert detail["widthMm"] == 1.8
+    assert (detail["distanceCm"], detail["fovDeg"], detail["imageWidth"]) == (430.0, 90.0, 1920)
+    listed = client.get("/structures/1/cracks").json()[0]
+    assert listed["imageWidth"] == 1920
+
+
+def test_capture_conditions_unknown_are_null(client):
+    """촬영 조건 없이 저장된 균열은 null로 돌려줌."""
+    insp_id = client.post("/inspections", json={"structureId": 1}).json()["id"]
+    with SessionLocal() as db:
+        c = Crack(inspection_id=insp_id, structure_id=1, pos_x=0, pos_y=0, pos_z=0,
+                  length_mm=1, width_mm=1, area_mm2=1, severity="safe", confidence=0.5)
+        db.add(c)
+        db.commit()
+        crack_id = c.id
+    body = client.get(f"/cracks/{crack_id}").json()
+    assert (body["distanceCm"], body["fovDeg"], body["imageWidth"]) == (None, None, None)
+
+
+def test_image_width_from_uploaded_image(client):
+    insp_id = client.post("/inspections", json={"structureId": 1}).json()["id"]
+    ok, buf = cv2.imencode(".jpg", np.full((720, 1280, 3), 150, np.uint8))
+    crack = _detect(client, insp_id, image=buf.tobytes()).json()["cracks"][0]
+    assert crack["imageWidth"] == 1280
 
 
 def test_errors(client):

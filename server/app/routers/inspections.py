@@ -71,6 +71,7 @@ def detect(
             image_url=image_url, overlay_url=overlay_url,
             pos_x=cap.hit.x, pos_y=cap.hit.y, pos_z=cap.hit.z,
             length_mm=f["lengthMm"], width_mm=f["widthMm"], area_mm2=f["areaMm2"],
+            distance_cm=cap.distance_cm, fov_deg=cap.fov_deg, image_width=img.shape[1],
             severity=f["severity"], confidence=f["confidence"],
         )
         for f in found
@@ -85,7 +86,9 @@ def detect(
             DetectedCrack(
                 id=r.id, severity=r.severity, confidence=round(r.confidence, 3),
                 length_mm=round(r.length_mm, 1), width_mm=round(r.width_mm, 2),
-                area_mm2=round(r.area_mm2, 1), pos=Vec3(x=r.pos_x, y=r.pos_y, z=r.pos_z),
+                area_mm2=round(r.area_mm2, 1),
+                distance_cm=r.distance_cm, fov_deg=r.fov_deg, image_width=r.image_width,
+                pos=Vec3(x=r.pos_x, y=r.pos_y, z=r.pos_z),
                 bbox=f["bbox"], image_url=image_url, overlay_url=overlay_url,
             )
             for r, f in zip(rows, found)

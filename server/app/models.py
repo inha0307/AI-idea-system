@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Float, ForeignKey, String
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -47,6 +47,10 @@ class Crack(Base):
     length_mm: Mapped[float] = mapped_column(Float)
     width_mm: Mapped[float] = mapped_column(Float)
     area_mm2: Mapped[float] = mapped_column(Float)
+    # 촬영 조건 (1픽셀당 mm 계산용). 모르면 NULL
+    distance_cm: Mapped[float | None] = mapped_column(Float)
+    fov_deg: Mapped[float | None] = mapped_column(Float)
+    image_width: Mapped[int | None] = mapped_column(Integer)
     severity: Mapped[str] = mapped_column(String(10), index=True)
     confidence: Mapped[float] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
