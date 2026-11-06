@@ -13,6 +13,7 @@ def to_crack_out(c: Crack) -> CrackOut:
         id=c.id, inspection_id=c.inspection_id, structure_id=c.structure_id,
         severity=c.severity, confidence=c.confidence,
         length_mm=c.length_mm, width_mm=c.width_mm, area_mm2=c.area_mm2,
+        distance_cm=c.distance_cm, fov_deg=c.fov_deg, image_width=c.image_width,
         pos=Vec3(x=c.pos_x, y=c.pos_y, z=c.pos_z),
         image_url=c.image_url, overlay_url=c.overlay_url, created_at=c.created_at,
     )
