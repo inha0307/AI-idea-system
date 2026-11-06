@@ -90,11 +90,13 @@ Write-Step 'UE5 빌드'
 if (-not $cfg.UE_EXE) {
     Write-Skip 'scripts\.env의 UE_EXE가 비어 있음: 건너뜀'
 } else {
-    if ($cfg.UE_ARGS) {
-        $ue = Start-Process $cfg.UE_EXE -PassThru -ArgumentList $cfg.UE_ARGS
-    } else {
-        $ue = Start-Process $cfg.UE_EXE -PassThru
+    # UE5는 점검 스크린샷을 서버로 직접 보냄 (docs 1-2). 주소가 없으면 같은 PC의 서버로 붙임
+    $ueArgs = "$($cfg.UE_ARGS)".Trim()
+    if ($ueArgs -notmatch '-CrackApiUrl=') {
+        $ueArgs = "$ueArgs -CrackApiUrl=$apiLocal".Trim()
+        Write-Host "  -CrackApiUrl이 없어 자동으로 붙임: $apiLocal"
     }
+    $ue = Start-Process $cfg.UE_EXE -PassThru -ArgumentList $ueArgs
     $pids['ue5'] = $ue.Id
     Save-Pids $pids
     Write-Ok 'UE5 실행'
