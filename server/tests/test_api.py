@@ -133,6 +133,34 @@ def test_ue5_style_multipart(client):
     assert r.json()["captureId"] == "c-ue5"
 
 
+def test_latest_inspection_and_inspection_filter(client):
+    a = client.post("/inspections", json={"structureId": 1}).json()["id"]
+    assert _detect(client, a, {**META, "id": "c-latest"}).status_code == 200
+    b = client.post("/inspections", json={"structureId": 1}).json()["id"]  # 빈 점검 (균열 없음)
+
+    s = client.get("/structures/1").json()
+    latest = s["latestInspection"]
+    assert latest["id"] == a  # 빈 점검 b는 건너뜀
+    assert latest["crackCounts"] == {"safe": 0, "caution": 1, "danger": 0}
+    total = s["crackCounts"]
+    assert total["caution"] >= 1 and sum(total.values()) >= sum(latest["crackCounts"].values())
+    assert client.get("/structures").json()[0]["latestInspection"]["id"] == a
+
+    only_a = client.get(f"/structures/1/cracks?inspectionId={a}").json()
+    assert len(only_a) == 1 and only_a[0]["inspectionId"] == a
+    assert client.get(f"/structures/1/cracks?inspectionId={b}").json() == []
+    assert client.get(f"/structures/1/cracks?inspectionId={a}&severity=danger").json() == []
+    assert len(client.get(f"/structures/1/cracks?inspectionId={a}&severity=caution").json()) == 1
+
+
+def test_latest_inspection_null_without_cracks(client):
+    assert client.get("/structures/2").json()["latestInspection"] is None
+
+
+def test_severity_thresholds(client):
+    assert client.get("/severity-thresholds").json() == {"cautionMm": 0.3, "dangerMm": 1.0}
+
+
 def test_image_width_from_uploaded_image(client):
     insp_id = client.post("/inspections", json={"structureId": 1}).json()["id"]
     ok, buf = cv2.imencode(".jpg", np.full((720, 1280, 3), 150, np.uint8))
