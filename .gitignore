@@ -16,6 +16,10 @@ server/models/*
 server/storage/*
 !server/storage/.gitkeep
 
+# 시연 스크립트 실행 기록
+scripts/.demo_pids.json
+scripts/.tunnel.log
+
 # Node
 node_modules/
 .next/

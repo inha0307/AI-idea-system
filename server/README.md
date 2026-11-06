@@ -23,6 +23,18 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 - API 문서: http://localhost:8000/docs
 - 상태 확인: http://localhost:8000/health
 
+## 시연 한 번에 켜기·끄기
+
+```powershell
+# 저장소 최상위 폴더에서
+powershell -ExecutionPolicy Bypass -File scripts\start_demo.ps1   # DB → API → 웹 → 시그널링 → UE5 → 터널
+powershell -ExecutionPolicy Bypass -File scripts\stop_demo.ps1    # 모두 종료 (DB 데이터는 유지)
+```
+
+- 시그널링 서버와 UE5 경로는 `scripts\.env.example`을 `scripts\.env`로 복사해 UE5 담당이 채웁니다. 비어 있으면 그 단계는 건너뜁니다.
+- `-NoTunnel`: 터널 없이 실행 / `-NoWeb`: 웹 없이 실행
+- 터널 주소(`https://…trycloudflare.com`)는 실행할 때마다 바뀌므로 화면에 나온 주소를 프론트 담당에게 전달합니다.
+
 ## 탐지 모드 (`.env`의 `DETECTOR`)
 
 | 값 | 동작 |
