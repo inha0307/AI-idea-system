@@ -107,5 +107,8 @@ class DetectedCrack(CaptureConditions):
 
 
 class DetectOut(CamelModel):
+    # UE5가 이 응답을 Pixel Streaming으로 웹에 그대로 전달하므로 메시지 종류와 요청 id를 포함
+    type: Literal["detect_result"] = "detect_result"
     inspection_id: int
+    capture_id: str
     cracks: list[DetectedCrack]

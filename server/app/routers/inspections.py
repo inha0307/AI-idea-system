@@ -82,6 +82,7 @@ def detect(
     # 6. 응답
     return DetectOut(
         inspection_id=inspection_id,
+        capture_id=cap.id,
         cracks=[
             DetectedCrack(
                 id=r.id, severity=r.severity, confidence=round(r.confidence, 3),
