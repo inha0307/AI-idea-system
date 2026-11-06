@@ -45,6 +45,13 @@ class CrackCounts(BaseModel):
     danger: int = 0
 
 
+class LatestInspection(CamelModel):
+    """균열이 1건 이상 저장된 가장 최근 점검 (대시보드 현재 상태용)."""
+    id: int
+    started_at: datetime
+    crack_counts: CrackCounts
+
+
 class StructureOut(CamelModel):
     id: int
     name: str
@@ -53,8 +60,14 @@ class StructureOut(CamelModel):
     latitude: float | None
     longitude: float | None
     created_at: datetime
-    crack_counts: CrackCounts
+    crack_counts: CrackCounts  # 모든 점검 누적
     last_inspected_at: datetime | None
+    latest_inspection: LatestInspection | None
+
+
+class SeverityThresholds(CamelModel):
+    caution_mm: float
+    danger_mm: float
 
 
 # ---------- 날씨 ----------

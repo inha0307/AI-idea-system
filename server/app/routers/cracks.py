@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import get_db
 from app.models import Crack
-from app.schemas import CrackOut, Vec3
+from app.schemas import CrackOut, SeverityThresholds, Vec3
 
 router = APIRouter(tags=["cracks"])
 
@@ -17,6 +18,12 @@ def to_crack_out(c: Crack) -> CrackOut:
         pos=Vec3(x=c.pos_x, y=c.pos_y, z=c.pos_z),
         image_url=c.image_url, overlay_url=c.overlay_url, created_at=c.created_at,
     )
+
+
+@router.get("/severity-thresholds", response_model=SeverityThresholds)
+def get_severity_thresholds():
+    """위험도 기준값 (평균 폭 mm). 웹이 측정 해상도와 비교하는 데 씀."""
+    return SeverityThresholds(caution_mm=settings.SEVERITY_CAUTION_MM, danger_mm=settings.SEVERITY_DANGER_MM)
 
 
 @router.get("/cracks/{crack_id}", response_model=CrackOut)
