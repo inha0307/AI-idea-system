@@ -44,7 +44,9 @@ def client():
         Base.metadata.drop_all(engine)
         Base.metadata.create_all(engine)
         with SessionLocal() as db:
-            db.add(Structure(name="테스트 건물", address="춘천", model_url="/files/assets/structure.glb"))
+            db.add(Structure(name="테스트 건물", address="강릉", model_url="/files/assets/structure.glb",
+                             latitude=37.8014, longitude=128.9088))
+            db.add(Structure(name="위치 없는 건물", address="?"))
             db.commit()
         yield c
 

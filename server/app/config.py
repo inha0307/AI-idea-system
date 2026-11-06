@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:3000"
     SEVERITY_CAUTION_MM: float
     SEVERITY_DANGER_MM: float
+    KMA_SERVICE_KEY: str = ""  # 비어 있으면 /weather는 503
+    WEATHER_CACHE_SEC: int = 600
 
     @property
     def cors_origins(self) -> list[str]:

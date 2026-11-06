@@ -9,7 +9,7 @@ from app import models  # noqa: F401  (테이블 등록)
 from app.ai import detector
 from app.config import settings
 from app.db import Base, engine
-from app.routers import cracks, health, inspections, structures
+from app.routers import cracks, health, inspections, structures, weather
 
 logging.basicConfig(level=logging.INFO)
 
@@ -31,7 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for r in (health, structures, inspections, cracks):
+for r in (health, structures, inspections, cracks, weather):
     app.include_router(r.router)
 
 app.mount("/files", StaticFiles(directory=settings.storage_dir), name="files")

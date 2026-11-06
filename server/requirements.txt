@@ -7,3 +7,4 @@ pydantic-settings==2.16.2
 python-multipart==0.0.33
 numpy==2.5.4
 opencv-python-headless==5.0.0.93
+httpx==0.28.1

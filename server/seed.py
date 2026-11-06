@@ -16,11 +16,14 @@ from app.config import settings
 from app.db import Base, SessionLocal, engine
 from app.models import Crack, Inspection, Structure
 
-# 구조물 1개. .glb는 Drive /assets에서 받아 storage/assets/structure.glb에 둡니다.
+# 구조물 1개: 시연 건물 강릉 스카이베이. .glb는 Drive /assets에서 받아 storage/assets/structure.glb에 둡니다.
+# 위경도는 날씨 조회용 (기상청 격자 93, 133). 격자가 5km 단위라 대략적인 값이면 충분합니다.
 STRUCTURE = {
-    "name": "시연용 건물 외벽",
-    "address": "강원특별자치도 춘천시 강원대학길 1",
+    "name": "스카이베이 경포",
+    "address": "강원특별자치도 강릉시 해안로 476",
     "model_url": "/files/assets/structure.glb",
+    "latitude": 37.8014,
+    "longitude": 128.9088,
 }
 
 IMG_W, IMG_H = 1920, 1080

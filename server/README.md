@@ -44,6 +44,12 @@ powershell -ExecutionPolicy Bypass -File scripts\stop_demo.ps1    # 모두 종�
 
 `best.pt`는 Drive `/models`에서 받아 `server/models/`에 둡니다. `.glb`는 Drive `/assets`에서 받아 `server/storage/assets/structure.glb`에 둡니다.
 
+## 날씨 (`GET /structures/{id}/weather`)
+
+- 기상청 초단기실황(공공데이터포털 「기상청_단기예보 조회서비스」)으로 구조물 위치의 기온·습도·풍속을 돌려줍니다.
+- 키는 `.env`의 `KMA_SERVICE_KEY`에 넣습니다 (Git 금지). 없으면 이 API만 503이고 나머지는 정상입니다.
+- 구조물의 위경도(`latitude`, `longitude`)는 `seed.py`에서 넣습니다. 서버가 기상청 격자(nx, ny)로 바꿔 조회합니다.
+
 ## 테스트 (Docker 없이 SQLite로 실행)
 
 ```powershell

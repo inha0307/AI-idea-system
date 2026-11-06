@@ -50,9 +50,25 @@ class StructureOut(CamelModel):
     name: str
     address: str | None
     model_url: str | None
+    latitude: float | None
+    longitude: float | None
     created_at: datetime
     crack_counts: CrackCounts
     last_inspected_at: datetime | None
+
+
+# ---------- 날씨 ----------
+
+class WeatherOut(CamelModel):
+    structure_id: int
+    temperature_c: float
+    humidity_pct: float
+    wind_speed_ms: float
+    wind_dir_deg: float | None
+    wind_level: Literal["weak", "moderate", "strong", "very_strong"]
+    observed_at: datetime
+    source: Literal["KMA"] = "KMA"
+    stale: bool
 
 
 # ---------- 점검 ----------
