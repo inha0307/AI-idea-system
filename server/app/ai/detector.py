@@ -40,7 +40,10 @@ def load_model(path: str | Path, device: str) -> None:
 
     _model = YOLO(str(path))
     _device = device
-    log.info("YOLO 모델 로드: %s (%s)", path, device)
+    # 첫 추론은 준비 때문에 수 초가 걸리므로 서버 시작 때 미리 한 번 돌려 둠
+    _model.predict(np.zeros((640, 640, 3), np.uint8), device=_device, verbose=False)
+    measure(np.ones((3, 3), bool), 1.0)  # scikit-image도 미리 불러 둠
+    log.info("YOLO 모델 로드: %s (%s, task=%s, 클래스=%s)", path, device, _model.task, list(_model.names.values()))
 
 
 def detect(image: np.ndarray, meta: dict) -> list[dict]:
@@ -58,20 +61,30 @@ def detect(image: np.ndarray, meta: dict) -> list[dict]:
             verbose=False,
         )[0]
 
-    if result.masks is None:
+    if result.boxes is None or len(result.boxes) == 0:
         return []
 
     h, w = image.shape[:2]
     scale = mm_per_px(meta["distanceCm"], meta["fovDeg"], w)
-    masks = result.masks.data.cpu().numpy()
     boxes = result.boxes.xyxy.cpu().numpy()
     confs = result.boxes.conf.cpu().numpy()
+    # 분할(seg) 모델이면 마스크를 그대로 쓰고, 탐지(detect) 모델이면 박스 안에서 마스크를 추정
+    masks = result.masks.data.cpu().numpy() if result.masks is not None else [None] * len(boxes)
 
     cracks = []
     for mask, box, conf in zip(masks, boxes, confs):
-        mask = mask > 0.5
-        if mask.shape != (h, w):
-            mask = cv2.resize(mask.astype(np.uint8), (w, h), interpolation=cv2.INTER_NEAREST) > 0
+        if mask is None:
+            mask = mask_from_box(image, box)
+            if not mask.any():
+                # 선을 못 찾음 → 박스 대각선을 1픽셀 폭 균열로 봄. 폭이 1픽셀이라 웹에는 「측정 신뢰 불가」로 표시됨
+                line = np.zeros((h, w), dtype=np.uint8)
+                x1, y1, x2, y2 = (int(round(v)) for v in box)
+                cv2.line(line, (x1, y1), (x2, y2), 1, 1)
+                mask = line > 0
+        else:
+            mask = mask > 0.5
+            if mask.shape != (h, w):
+                mask = cv2.resize(mask.astype(np.uint8), (w, h), interpolation=cv2.INTER_NEAREST) > 0
         m = measure(mask, scale)
         cracks.append({
             "confidence": float(conf),
@@ -100,6 +113,45 @@ def measure(mask: np.ndarray, scale: float) -> dict:
         "widthMm": width_px * scale,
         "areaMm2": area_px * scale * scale,
     }
+
+
+def mask_from_box(image: np.ndarray, box) -> np.ndarray:
+    """탐지(detect) 모델용: 박스 안에서 주변보다 어두운 선(균열)을 골라 마스크를 만든다.
+
+    균열은 벽보다 어둡고 가늘고 길다는 점을 이용한다.
+    1. black-hat: 각 픽셀이 주변 배경보다 얼마나 어두운지
+    2. 가장 어두운 부분의 절반 이상만 남김 (반치폭 → 선 굵기를 부풀리지 않음)
+    3. 박스 크기에 비해 충분히 길게 이어진 덩어리만 남김 (벽 얼룩·잡음 제거)
+    분할(seg) 모델이 오면 이 함수는 쓰이지 않는다.
+    """
+    h, w = image.shape[:2]
+    x1, y1, x2, y2 = (int(round(v)) for v in box)
+    x1, y1 = max(0, x1), max(0, y1)
+    x2, y2 = min(w, x2), min(h, y2)
+    mask = np.zeros((h, w), dtype=bool)
+    if x2 - x1 < 3 or y2 - y1 < 3:
+        return mask
+
+    gray = cv2.cvtColor(image[y1:y2, x1:x2], cv2.COLOR_BGR2GRAY)
+    k = max(9, (min(x2 - x1, y2 - y1) // 8) | 1)  # 균열보다 넓은 홀수 크기
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+    dark = cv2.morphologyEx(gray, cv2.MORPH_BLACKHAT, kernel)  # 배경보다 어두운 정도
+    dark = cv2.GaussianBlur(dark, (3, 3), 0)
+    floor = float(np.median(dark))  # 벽 질감·잡음 수준
+    peak = float(np.percentile(dark, 99.8))  # 한두 픽셀 튀는 값에 끌려가지 않게
+    if peak - floor < 25:  # 잡음과 뚜렷이 구분되는 어두운 선이 없음
+        return mask
+    crop = (dark >= floor + (peak - floor) * 0.5).astype(np.uint8)
+
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(crop, connectivity=8)
+    min_span = 0.15 * max(x2 - x1, y2 - y1)  # 선이라면 박스 크기의 15% 이상 이어짐
+    keep = np.zeros(crop.shape, dtype=bool)
+    for i in range(1, n):
+        span = max(stats[i, cv2.CC_STAT_WIDTH], stats[i, cv2.CC_STAT_HEIGHT])
+        if span >= min_span:
+            keep |= labels == i
+    mask[y1:y2, x1:x2] = keep
+    return mask
 
 
 def severity(width_mm: float, caution_mm: float, danger_mm: float) -> str:

@@ -40,9 +40,19 @@ powershell -ExecutionPolicy Bypass -File scripts\stop_demo.ps1    # 모두 종�
 | 값 | 동작 |
 |---|---|
 | `fake` | 이미지와 상관없이 고정된 균열 1개를 돌려줌 (M2 연결 테스트용) |
-| `yolo` | `MODEL_PATH`의 `best.pt`로 실제 탐지. `pip install -r requirements-ai.txt` 필요. 파일이 없으면 서버가 시작되지 않음 |
+| `yolo` | `MODEL_PATH`의 `best.pt`로 실제 탐지. 파일이 없으면 서버가 시작되지 않음 |
 
-`best.pt`는 Drive `/models`에서 받아 `server/models/`에 둡니다. `.glb`는 Drive `/assets`에서 받아 `server/storage/assets/structure.glb`에 둡니다.
+**`yolo` 모드 설치** (서버를 끈 상태에서. 켜져 있으면 cv2 파일이 잠겨 실패합니다)
+
+```powershell
+pip install -r requirements-ai.txt
+pip install --no-deps ultralytics==8.4.203     # opencv-python을 함께 깔지 않도록 따로 설치
+```
+
+- `best.pt`는 Drive `/models`에서 받아 `server/models/`에 둡니다. `.glb`는 Drive `/assets`에서 받아 `server/storage/assets/structure.glb`에 둡니다.
+- **분할(seg) 모델**이면 모델이 준 균열 마스크로 길이·폭을 잽니다.
+- **탐지(detect) 모델**(박스만 줌)이면 박스 안에서 주변보다 어둡고 길게 이어진 선을 골라 마스크를 만듭니다 (`detector.mask_from_box`). 선을 못 찾으면 박스 대각선을 1픽셀 폭으로 처리해, 웹에서 「측정 신뢰 불가」로 표시되게 합니다.
+- 2026-11-06 기준 `best.pt`: 탐지(detect) 모델, 클래스 1개(균열), ultralytics 8.4.203, imgsz 640, 50 epoch. CPU 추론 약 0.1초/장.
 
 ## 날씨 (`GET /structures/{id}/weather`)
 

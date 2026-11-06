@@ -1,5 +1,19 @@
-# DETECTOR=yolo일 때만 필요 (torch 포함, 용량 큼)
-# 버전은 버전 표에서 Ultralytics가 확정되면 == 로 고정합니다 (규칙 5)
+# DETECTOR=yolo일 때만 필요 (PyTorch 포함, 용량 큼). 설치는 두 단계입니다:
+#   pip install -r requirements-ai.txt
+#   pip install --no-deps ultralytics==8.4.203
+# ultralytics를 그냥 설치하면 opencv-python을 함께 깔아, 서버가 쓰는 opencv-python-headless와
+# 같은 cv2 폴더를 덮어씁니다. 그래서 ultralytics만 --no-deps로 따로 설치합니다.
+# 버전은 AI 담당이 best.pt를 학습한 ultralytics 8.4.203에 맞췄습니다 (규칙 5).
 -r requirements.txt
-ultralytics
-scikit-image
+torch==2.15.0
+torchvision==0.29.2
+scikit-image==0.26.0
+matplotlib==3.11.2
+pillow==13.0.0
+PyYAML==6.0.3
+requests==2.34.2
+scipy==1.18.1
+psutil==7.2.2
+polars==2.1.0
+ultralytics-thop==2.2.5
+ultralytics-platform==0.1.104
