@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:3000"
     SEVERITY_CAUTION_MM: float
     SEVERITY_DANGER_MM: float
+    TRACK_MATCH_CM: float = 50.0  # 이 반경 안의 기존 균열이면 같은 균열로 묶음
     KMA_SERVICE_KEY: str = ""  # 비어 있으면 /weather는 503
     WEATHER_CACHE_SEC: int = 600
 

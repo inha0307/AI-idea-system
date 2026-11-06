@@ -36,12 +36,30 @@ class Inspection(Base):
     structure: Mapped[Structure] = relationship(back_populates="inspections")
 
 
+class CrackTrack(Base):
+    """같은 균열. 여러 사진(관측, cracks 행)이 하나의 트랙에 묶인다."""
+    __tablename__ = "crack_tracks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    structure_id: Mapped[int] = mapped_column(ForeignKey("structures.id"), index=True)
+    # 대표 위치 = 관측 위치의 평균 (UE5 cm)
+    pos_x: Mapped[float] = mapped_column(Float, default=0.0)
+    pos_y: Mapped[float] = mapped_column(Float, default=0.0)
+    pos_z: Mapped[float] = mapped_column(Float, default=0.0)
+    length_mm: Mapped[float] = mapped_column(Float, default=0.0)  # 가장 최근 관측
+    observations: Mapped[int] = mapped_column(Integer, default=0)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class Crack(Base):
+    """균열 관측 1건 (사진 1장에서 찍힌 균열)."""
     __tablename__ = "cracks"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     inspection_id: Mapped[int] = mapped_column(ForeignKey("inspections.id"), index=True)
     structure_id: Mapped[int] = mapped_column(ForeignKey("structures.id"), index=True)
+    track_id: Mapped[int | None] = mapped_column(ForeignKey("crack_tracks.id"), index=True)
     image_url: Mapped[str | None] = mapped_column(String(500))
     overlay_url: Mapped[str | None] = mapped_column(String(500))
     pos_x: Mapped[float] = mapped_column(Float)
